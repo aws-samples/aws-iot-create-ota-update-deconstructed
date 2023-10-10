@@ -1,0 +1,24 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT-0
+
+image: python:latest
+
+before_script:
+  - python --version
+  - pip install -r requirements.txt
+  - pylint --version
+  - bandit --version
+
+stages:
+  - Static Analysis
+  - Security Scan
+
+pylint:
+  stage: Static Analysis
+  script:
+  - pylint *.py
+
+bandit:
+  stage: Security Scan
+  script:
+  - bandit -v *.py
