@@ -7,8 +7,8 @@ CreateOTAUpdate API operation. CreateOTAUpdate is an integrated operation that
 makes numerous other API calls, finishing with CreateJob. This example makes
 those APIs calls to construct a job and job document that is equivalent to
 an OTA Update. This approach allows you to perform an OTA Update that uses
-advanced job configuration options such as retries, scheduling and destination
-package versions. These options are not supported by CreateOTAUpdate, but are
+advanced job configuration options such as retries, scheduling and Software
+Package Catalog. These options are not supported by CreateOTAUpdate, but are
 supported by CreateJob.
 
 This example creates the OTA Update job with the following paraemters and scenario:
@@ -192,7 +192,7 @@ def create_job():
 #            ],
             'startTime': (now + timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M')
         }
-# You may optionally define package version ARNs here
+# You may optionally define Software Package Catalog package version ARNs here
 #        destinationPackageVersions=[
 #            'string',
 #        ]
@@ -201,13 +201,15 @@ def create_job():
 
 
 parser = argparse.ArgumentParser(description='Create and execute AWS IoT OTA update using jobs')
-parser.add_argument('binary',           help='Name of the binary file (oject key) in the S3 bucket')
+parser.add_argument('binary',           help='Name of the binary file (object key)\
+                                                in the S3 bucket')
 parser.add_argument('bucket',           help='Name of the bucket')
 parser.add_argument('signingProfile',   help='Name of the signing profile')
 parser.add_argument('otaRole',          help='Name of the IAM role that grants IoT access\
                                                 to S3, IoT jobs and code signing')
 parser.add_argument('thingGroup',       help='Name of the target Thing group')
-parser.add_argument('jobId',            help='ID of the job to be created')
+parser.add_argument('jobId',            help='ID of the job to be created (\'AFR_OTA-\' will\
+                                                be prepended)')
 args = parser.parse_args()
 
 iot = boto3.client('iot')

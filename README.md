@@ -44,12 +44,12 @@ usage: create_ota_update.py [-h] binary bucket signingProfile otaRole thingGroup
 Create and execute AWS IoT OTA update directly using jobs
 
 positional arguments:
-  binary          Name of the binary file (oject key) in the S3 bucket
+  binary          Name of the binary file (object key) in the S3 bucket
   bucket          Name of the bucket
   signingProfile  Name of the signing profile
   otaRole         Name of the IAM role that grants IoT access to S3, IoT jobs and code signing
   thingGroup      Name of the target Thing group
-  jobId           ID of the job to be created
+  jobId           ID of the job to be created ('AFR_OTA-' will be prepended)
 
 optional arguments:
   -h, --help      show this help message and exit
@@ -96,7 +96,7 @@ The following scenario is demonstrated:
 5. Number of [retries](https://docs.aws.amazon.com/iot/latest/apireference/API_CreateJob.html#iot-CreateJob-request-jobExecutionsRetryConfig) set to 3.
 6. A [scheduled job](https://docs.aws.amazon.com/iot/latest/apireference/API_CreateJob.html#iot-CreateJob-request-schedulingConfig) that starts one hour in the future and ends an hour later.
 
-The example can of course be adjusted to cater for different options and to use additional advanced job configuration such as [recurring maintenace windows](https://docs.aws.amazon.com/iot/latest/apireference/API_SchedulingConfig.html#iot-Type-SchedulingConfig-maintenanceWindows), [software catalog package versions](https://docs.aws.amazon.com/iot/latest/apireference/API_CreateJob.html#iot-CreateJob-request-destinationPackageVersions) and [namespaces](https://docs.aws.amazon.com/iot/latest/apireference/API_CreateJob.html#iot-CreateJob-request-namespaceId).
+The example can of course be adjusted to cater for different options and to use additional advanced job configuration such as [recurring maintenance windows](https://docs.aws.amazon.com/iot/latest/apireference/API_SchedulingConfig.html#iot-Type-SchedulingConfig-maintenanceWindows) and [software catalog package versions](https://docs.aws.amazon.com/iot/latest/apireference/API_CreateJob.html#iot-CreateJob-request-destinationPackageVersions).
 
 # Deviations
 
