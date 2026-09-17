@@ -26,18 +26,126 @@ You can use the knowledge of how **CreateOTAUpdate** is composed, to create your
 
 The example in this repository is a Python script. Package dependencies can be resolved as follows:
 
-```
+```bash
 pip3 install -r requirements.txt
 ```
 
 Please consider to use a [virtual environment](https://docs.python.org/3/library/venv.html).
 
-[Boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html) is included in the package dependencies and therefore your machine requires appropriate [credentials](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html).
+# Required IAM Permissions
+
+Two distinct principals are involved, and each needs its own permissions:
+
+1. **The operator**: the IAM user or role whose credentials run `create_ota_update.py`.
+2. **The OTA service role**: the role named by the `otaRole` argument, which AWS IoT assumes to read the firmware object from S3 when it creates the stream.
+
+Both are described below. Replace `MyBucketName`, `MyIoTOTARoleName`, the account ID `012345678901`, and the region `us-east-1` with your own values.
+
+## Operator policy
+
+The operator runs each API call in the script directly. The script calls `sts:GetCallerIdentity` (to resolve the account ID), reads and copies the S3 object, lists its versions, signs it, and creates the stream and job. Because the script passes the OTA service role to `iot:CreateStream`, the operator also needs `iam:PassRole` scoped to that role.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Identity",
+      "Effect": "Allow",
+      "Action": "sts:GetCallerIdentity",
+      "Resource": "*"
+    },
+    {
+      "Sid": "S3ObjectAccess",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:PutObject"
+      ],
+      "Resource": "arn:aws:s3:::MyBucketName/*"
+    },
+    {
+      "Sid": "S3ListVersions",
+      "Effect": "Allow",
+      "Action": "s3:ListBucketVersions",
+      "Resource": "arn:aws:s3:::MyBucketName"
+    },
+    {
+      "Sid": "CodeSigning",
+      "Effect": "Allow",
+      "Action": [
+        "signer:StartSigningJob",
+        "signer:DescribeSigningJob"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IoTJobsAndStreams",
+      "Effect": "Allow",
+      "Action": [
+        "iot:CreateStream",
+        "iot:CreateJob"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "PassOtaRole",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::012345678901:role/MyIoTOTARoleName"
+    }
+  ]
+}
+```
+
+Notes:
+- A copy (`s3.copy_object`) is a read of the source plus a write of the destination, so it needs `s3:GetObject` and `s3:PutObject` rather than a single `s3:CopyObject` action (there is no such action).
+- The object-level actions are scoped to the object ARN (`arn:aws:s3:::MyBucketName/*`), while `s3:ListBucketVersions` is scoped to the bucket ARN (`arn:aws:s3:::MyBucketName`).
+- `signer:*` and `iot:CreateStream`/`iot:CreateJob` do not support useful resource-level scoping for these calls, so `Resource` is `*`.
+
+## OTA service role
+
+The `otaRole` is assumed by AWS IoT to read the (signed) firmware object from S3 when creating the stream. Attach a permissions policy granting read access to the bucket:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": "arn:aws:s3:::MyBucketName/*"
+    }
+  ]
+}
+```
+
+The role also needs a trust policy that allows AWS IoT to assume it:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "iot.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
 # Usage
 
 The [create_ota_update.py](create_ota_update.py) script creates an IoT job that is the equivalent of an OTA update. The usage is shown below.
 
-```
+```text
 @ubuntu:~/git/create-ota-update-deconstructed$ python create_ota_update.py -h
 usage: create_ota_update.py [-h] binary bucket signingProfile otaRole thingGroup jobId
 
@@ -59,7 +167,7 @@ optional arguments:
 
 The steps implemented in [create_ota_update.py](create_ota_update.py) are the equivalent of a CreateOTAUpdate call constructed as follows (but with retries and scheduling added):
 
-```
+```python
     response = iot.create_ota_update(
         otaUpdateId = 'MyJobId',
         targets = ['arn:aws:iot:us-east-1:012345678901:thinggroup/MyThingGroupName'],
@@ -106,7 +214,7 @@ The resultant jobs and artifacts deviate from **CreateOTAUpdate** only in the fa
 
 The signing job creates a signed object in S3 which is just a JSON document of the following structure:
 
-```
+```json
 {
     "rawPayloadSize":366816,
     "signature":"MEUCIQCuwPQBzaKu9Rp4v4BwGa7T4h3JK71KwDJ3LZoSvYdCsQIgclDeaFE+5NeJL3cydMiuKM909bprNXfCZcneIuiSZrk=",
@@ -123,7 +231,7 @@ Note that **CreateOTAUpdate** overwrites the signed object with a copy of the ra
 
 The resulting job document has a structure similar to:
 
-```
+```json
 {
   "afr_ota": {
     "protocols": [
